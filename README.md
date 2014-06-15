@@ -1,34 +1,30 @@
-### SEPCAT :: Static Exploitable PHP Code Analysis Tool v0.3
+### SEPCAT :: Static Exploitable PHP Code Analysis Tool v0.4 Alpha
 
 SEPCAT is a simple PHP Static Code Analysis (SCA) tool written in Perl.
-It could be used to quickly test a PHP project that you think may have some potential vulnerabilities. 
+It could be used to quickly test a PHP project that you think may have some potential vulnerabilities.
+
+#### WARNING
+
+This is an alpha version. It is not recommended to use in a production environment yet. I'm sharing this code only for testing. There will be a lot of changes, before release of usable version.
 
 #### Usage
 
 ```
-vavkamil@localhost:~/SEPCAT$ perl sepcat.pl -folder /var/www/sepcat-test/
+vavkamil@localhost:~/SEPCAT$ perl sepcat.pl -folder test_vuln_files/
 ```
 
 #### Example
 
 ```
-File: /var/www/sepcat-test/index.php
-Line 7: Cross-Site Scripting found in 'echo' via '$name'
-Vuln code:
-echo('Hello ' . $name); # tainted data reaches sensitive sink
+[SEPCAT] Static Exploitable PHP Code Analysis Tool
+[+] Scanning folder: test_vuln_files/
 
-File: /var/www/sepcat-test/index.php
-Line 11: SQL Injection found in 'mysql_query' via '$id'
-Vuln code:
-mysql_query("SELECT user FROM users WHERE id = " . $id);
-
-File: /var/www/sepcat-test/index.php
-Line 15: Command Injection found in 'exec' via '$cmd'
-Vuln code:
-exec("cat /var/log/apache2/access.log | grep " . $cmd);
-
-File: /var/www/sepcat-test/index.php
-Line 21: PHP File Inclusion found in 'include' via '$_GET'
-Vuln code:
-include $_GET['rfi'].".html";
+Line 16: Cross-Site Scripting (XSS) in 'echo' via '$age'
+Line 32: PHP File Inclusion in 'include' via '$rfi'
 ```
+
+#### TODO
+1) php_tokenizer() is a bad idea, need to write a better PHP parser (maybe with Regexp::Grammars)
+2) Storing all tokens to one @tokens array is a very bad. Scanning a single file is OK, but not for folders, need to figure out how to pass file names and create separate array for each file.
+3) Need better sinks for checking of single vulnerabilities.
+4) Whole logic is bad, need to rewrite all parts of this crappy code.
