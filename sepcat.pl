@@ -20,7 +20,7 @@ use File::Find::Rule;
 # Command line options
 my $help;
 my $version;
-my $version_num = 'Version 0.4 Alpha';
+my $version_num = 'version 0.4 Alpha';
 my $opt_folder;
 my $opt_result;
 my $opt_file;
@@ -34,24 +34,24 @@ my $options = GetOptions(
 );
 
 my ( $target, $result ) = @ARGV;
-
-my $InsideCode     = 0;
-my $i              = 0;
 my $tokenSeperator = "<:::>";    # the token name/value seperator
 
 # Arrays bellow declares all the possible sources, sinks and securing functions.
 # All of this data originated from RIPS v0.51 http://sourceforge.net/projects/rips-scanner/
 #
 # Sources of tainted variables
-my @tainted_variables = ( '$_GET', '$_POST', '$_COOKIE', '$_REQUEST', '$_FILES', '$_SERVER', '$_ENV', '$HTTP_GET_VARS', '$HTTP_POST_VARS',
-	'$HTTP_COOKIE_VARS', '$HTTP_REQUEST_VARS', '$HTTP_POST_FILES', '$HTTP_SERVER_VARS', '$HTTP_ENV_VARS', 'HTTP_RAW_POST_DATA', 'argc', 'argv' );
+my @tainted_variables = ( '$_GET', '$_POST', '$_COOKIE', '$_REQUEST', '$_FILES', '$_SERVER',
+    '$_ENV', '$HTTP_GET_VARS', '$HTTP_POST_VARS', '$HTTP_COOKIE_VARS', '$HTTP_REQUEST_VARS',
+    '$HTTP_POST_FILES', '$HTTP_SERVER_VARS', '$HTTP_ENV_VARS', 'HTTP_RAW_POST_DATA', 'argc',
+    'argv' );
 my $tainted_variables = "\\" . join "|\\", @tainted_variables;
 
 # Potential Vulnerable Functions
 my @XSS = ( "echo", "print", "exit", "die", "printf", "vprintf" );
 my $XSS = '(?<!\\w)(' . join( "|", @XSS ) . ')(?!\\w)';
 
-my @fileInclude = ( "include", "include_once", "php_check_syntax", "require", "require_once", "runkit_import", "set_cinlude_path", "virtual" );
+my @fileInclude = ( "include", "include_once", "php_check_syntax", "require", "require_once",
+    "runkit_import", "set_cinlude_path", "virtual" );
 my $fileInclude = join "|", @fileInclude;
 
 # Secured Functions
@@ -68,7 +68,7 @@ BEGIN {
 start_scan();
 
 END {
-    print "\n";
+    quit("[+] Thank you for using SEPCAT, ".$version_num);
 }
 
 sub start_scan {
@@ -79,18 +79,12 @@ sub start_scan {
     }
 
     if ( defined( $opt_folder and $target ) ) {
-        my @files     = scan_folder($target);                # Scan folder for .php files
-        my @tokens    = php_tokenizer(@files);               # Get PHP tokens from source code
-        my @tainted   = codeAnalysis(@tokens);               # Check variables for user input sources
-        my @unsecured = unsecured( \@tainted, \@tokens );    # Is variable unsecured?
-        vulnerable( \@unsecured, \@tokens );                 # See if our tainted vars end up in sensitive sinks
+        my @files = scan_folder($target);   # Scan folder for .php files
+        php_tokenizer(@files);              # Get PHP tokens from source code
     }
     elsif ( defined( $opt_file and $target ) ) {
-        my @files     = scan_file($target);                  # Scan single .php file
-        my @tokens    = php_tokenizer(@files);               # Get PHP tokens from source code
-        my @tainted   = codeAnalysis(@tokens);               # Check variables for user input sources
-        my @unsecured = unsecured( \@tainted, \@tokens );    # Is variable unsecured?
-        vulnerable( \@unsecured, \@tokens );                 # See if our tainted vars end up in sensitive sinks
+        my @files = scan_file($target);     # Scan single .php file
+        php_tokenizer(@files);              # Get PHP tokens from source code
     }
 }
 
@@ -116,10 +110,13 @@ sub scan_file {
 
 sub php_tokenizer {
     my (@files) = @_;
-    my @tokens;
     my ( $file, $filepath );
     foreach (@files) {
+        my $i          = 0;
+        my $InsideCode = 0;
         ( $file, $filepath ) = fileparse($_);
+        my @tokens;
+        push( @tokens, "$filepath$file<:::>\n" );
         if ( $filepath eq "./" ) { $filepath = "." }
         open( my $fh, "<", $_ ) or die "Failed to open file: $!\n";
 
@@ -149,49 +146,53 @@ sub php_tokenizer {
                     }
                     else {
 
-                        my $regex_T_VARIABLE                 = '\$\w+';
-                        my $regex_T_NOTOKEN                  = '=|;|\[|\]|\(|\)';
-                        my $regex_T_CONSTANT_ENCAPSED_STRING = '\'[^\']*\'';
-                        my $regex_T_ECHO                     = 'echo';
-                        my $regex_T_INCLUDE                  = 'include';
-                        my $regex_all_tokens                 = $regex_T_VARIABLE . "|" . $regex_T_NOTOKEN . "|" . $regex_T_CONSTANT_ENCAPSED_STRING . "|" . $regex_T_ECHO . "|" . $regex_T_INCLUDE;
-                        my @raw_php                          = split( "\n", $_ );
+                        my $reg_T_VARIABLE                 = '\$\w+';
+                        my $reg_T_NOTOKEN                  = '=|;|\[|\]|\(|\)';
+                        my $reg_T_CONSTANT_ENCAPSED_STRING = '\'[^\']*\'';
+                        my $reg_T_ECHO                     = 'echo';
+                        my $reg_T_PRINT                    = '\bprint\b';
+                        my $reg_T_EXIT                     = 'exit|die';
+                        my $reg_T_INCLUDE                  = '\binclude\b';
+                        my $reg_T_STRING                   = 'printf|vprintf';
+                        my $reg_all_tokens                 = $reg_T_VARIABLE . "|" .
+                                                             $reg_T_NOTOKEN . "|" .
+                                                             $reg_T_CONSTANT_ENCAPSED_STRING . "|" .
+                                                             $reg_T_ECHO . "|" .
+                                                             $reg_T_PRINT . "|" .
+                                                             $reg_T_EXIT . "|" .
+                                                             $reg_T_INCLUDE . "|" .
+                                                             $reg_T_STRING;
+                        my @raw_php                        = split( "\n", $_ );
                         my @matches;
 
                         foreach my $raw_line (@raw_php) {
 
                             my @matches;
                             my $token;
-                            if ( @matches = $raw_line =~ /($regex_all_tokens|$securingXSS)/g ) {
+                            if ( @matches = $raw_line =~ /($reg_all_tokens|$securingXSS)/g ) {
                                 foreach my $match (@matches) {
-                                    if ( ($token) = $match =~ /(\$\w+)/g ) {
-
-                                        #print "T_VARIABLE<:::>" . $token . "<:::>".$i."\n";
+                                    if ( ($token) = $match =~ /($reg_T_VARIABLE)/g ) {
                                         push( @tokens, "T_VARIABLE<:::>$token<:::>$i" );
                                     }
-                                    elsif ( ($token) = $match =~ /(=|;|\[|\]|\(|\))/g ) {
-
-                                        #print "T_NOTOKEN<:::>" . $token . "<:::>".$i."\n";
+                                    elsif ( ($token) = $match =~ /($reg_T_NOTOKEN)/g ) {
                                         push( @tokens, "T_NOTOKEN<:::>$token<:::>$i" );
                                     }
-                                    elsif ( ($token) = $match =~ /(echo)/g ) {
-
-                                        #print "T_ECHO<:::>" . $token . "<:::>".$i."\n";
+                                    elsif ( ($token) = $match =~ /($reg_T_ECHO)/g ) {
                                         push( @tokens, "T_ECHO<:::>$token<:::>$i" );
                                     }
-                                    elsif ( ($token) = $match =~ /(include)/g ) {
-
-                                        #print "T_INCLUDE<:::>" . $token . "<:::>".$i."\n";
+                                    elsif ( ($token) = $match =~ /($reg_T_PRINT)/g ) {
+                                        push( @tokens, "T_PRINT<:::>$token<:::>$i" );
+                                    }
+                                    elsif ( ($token) = $match =~ /($reg_T_EXIT)/g ) {
+                                        push( @tokens, "T_EXIT<:::>$token<:::>$i" );
+                                    }
+                                    elsif ( ($token) = $match =~ /($reg_T_INCLUDE)/g ) {
                                         push( @tokens, "T_INCLUDE<:::>$token<:::>$i" );
                                     }
-                                    elsif ( ($token) = $match =~ /('[^']*')/g ) {
-
-                                        #print "T_CONSTANT_ENCAPSED_STRING<:::>" . $token . "<:::>".$i."\n";
+                                    elsif ( ($token) = $match =~ /($reg_T_CONSTANT_ENCAPSED_STRING)/g ) {
                                         push( @tokens, "T_CONSTANT_ENCAPSED_STRING<:::>$token<:::>$i" );
                                     }
-                                    elsif ( ($token) = $match =~ /$securingXSS/g ) {
-
-                                        #print "T_STRING<:::>" . $token . "<:::>".$i."\n";
+                                    elsif ( ($token) = $match =~ /$securingXSS|$reg_T_STRING/g ) {
                                         push( @tokens, "T_STRING<:::>$token<:::>$i" );
                                     }
                                 }
@@ -221,12 +222,12 @@ sub php_tokenizer {
             }
         }
         close $fh;
+        codeAnalysis(@tokens, $filepath.$file);  # Check variables for user input sources
     }
-    return @tokens;
 }
 
 sub codeAnalysis {
-    my ( @tokens, $files ) = @_;
+    my ( @tokens ) = @_;
     my @tainted;    # the array that will keep track of tainted variables
     foreach my $tokenCount ( 0 .. $#tokens - 1 ) {
         my @splitToken = split( $tokenSeperator, $tokens[$tokenCount] );
@@ -240,21 +241,18 @@ sub codeAnalysis {
         my $nextTokenLine  = $splitNextToken[2];
 
         # Sources: User Input.
-
-        if ( ( $TokenName eq "T_VARIABLE" ) and ( $nextTokenName eq "T_NOTOKEN" ) and ( $nextTokenValue eq "=" ) ) {    # if variable assignment
+        # if variable assignment
+        if ( ( $TokenName eq "T_VARIABLE" ) and ( $nextTokenName eq "T_NOTOKEN" ) and ( $nextTokenValue eq "=" ) ) {
 
             my @splitVarToken = split( $tokenSeperator, $tokens[ $tokenCount + 2 ] );
             my $varTokenName  = $splitVarToken[0];
             my $varTokenValue = $splitVarToken[1];
             if ( ( $varTokenName eq "T_VARIABLE" ) and ( $varTokenValue =~ /$tainted_variables/ ) ) {
-
-                # print $TokenValue." - ".$varTokenValue."\n";
                 push( @tainted, $TokenValue );
-
             }
         }
     }
-    return @tainted;
+    unsecured( \@tainted, \@tokens );   # Is variable unsecured?
 }
 
 sub unsecured {
@@ -284,7 +282,6 @@ sub unsecured {
                 my $varTokenValue = $splitVarToken[1];
                 my $varTokenLine  = $splitVarToken[1];
                 if ( $varTokenValue =~ /$securingXSS/ ) {
-
                     #print $TokenValue." - ".$varTokenValue." is secured.\n";
                     push( @secured, $TokenValue );
                 }
@@ -292,7 +289,7 @@ sub unsecured {
         }
     }
     if ( @secured == 0 ) {
-        $secured = "(test)";
+        $secured = "(null)";
     }
     else {
         $secured = "(\\" . ( join "|\\", @secured ) . ")";
@@ -302,17 +299,19 @@ sub unsecured {
             push( @unsecured, $tainted_var );
         }
     }
-    return @unsecured;
+    vulnerable( \@unsecured, \@$tokens );   # See if vars end up in sensitive sinks
 }
 
 sub vulnerable {
     my ( $unsecured, $tokens ) = @_;
+    my $file = @$tokens[0];
+    chomp($file);
+    $file =~ s/(<:::>)//;
     my $XSS_sink;
     my $XSS_line = "0";
     my $fileInclude_sink;
     my $fileInclude_line = "0";
     foreach my $variable (@$unsecured) {
-
         # print $variable."\n";
         foreach my $token ( 0 .. $#$tokens - 1 ) {
             my @splitToken = split( $tokenSeperator, @$tokens[$token] );
@@ -326,14 +325,16 @@ sub vulnerable {
                 $XSS_line = $TokenLine;
             }
             if ( ( $TokenValue eq $variable ) and ( $TokenLine eq $XSS_line ) ) {
-                print "Line " . $TokenLine . ": Cross-Site Scripting (XSS) in '" . $XSS_sink . "' via '" . $TokenValue . "'\n";
+                print "[+] Vulnerable file: $file\n";
+                print "[-] Line " . $TokenLine . ": Cross-Site Scripting (XSS) in '" . $XSS_sink . "' via '" . $TokenValue . "'\n\n";
             }
             if ( $TokenValue =~ /$fileInclude/ ) {
                 $fileInclude_sink = $TokenValue;
                 $fileInclude_line = $TokenLine;
             }
             if ( ( $TokenValue eq $variable ) and ( $TokenLine eq $fileInclude_line ) ) {
-                print "Line " . $TokenLine . ": PHP File Inclusion in '" . $fileInclude_sink . "' via '" . $TokenValue . "'\n";
+                print "[+] Vulnerable file: $file\n";
+                print "[-] Line " . $TokenLine . ": PHP File Inclusion in '" . $fileInclude_sink . "' via '" . $TokenValue . "'\n\n";
             }
         }
     }
