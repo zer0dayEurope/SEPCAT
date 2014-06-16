@@ -3,6 +3,11 @@
 SEPCAT is a simple PHP Static Code Analysis (SCA) tool written in Perl.
 It could be used to quickly test a PHP project that you think may have some potential vulnerabilities.
 
+# Functionality based on DevBug (http://devbug.co.uk)
+#
+# DevBug was created by Ryan Dewhurst (www.dewhurstsecurity.com)
+# as part of his undergraduate university thesis.
+
 #### WARNING
 
 This is an alpha version. It is not recommended to use in a production environment yet. I'm sharing this code only for testing. There will be a lot of changes, before release of usable version.
