@@ -22,8 +22,9 @@ my $help;
 my $version;
 my $version_num = 'version 0.4 Alpha';
 my $opt_folder;
-my $opt_result;
 my $opt_file;
+my $opt_result;
+my $backup = "0";
 
 my $options = GetOptions(
     "help"    => \$help,
@@ -77,7 +78,9 @@ sub start_scan {
         # Usage: perl $0 -folder /var/www/wp_plugins/ -result wp_plugins.txt
         die "Usage: perl $0 -folder /var/www/wp_plugins/\n\n";
     }
-
+    if ( defined( $opt_result and $result ) ) {
+        $backup = "1";
+    }
     if ( defined( $opt_folder and $target ) ) {
         my @files = scan_folder($target);   # Scan folder for .php files
         php_tokenizer(@files);              # Get PHP tokens from source code
@@ -325,19 +328,52 @@ sub vulnerable {
                 $XSS_line = $TokenLine;
             }
             if ( ( $TokenValue eq $variable ) and ( $TokenLine eq $XSS_line ) ) {
-                print "[+] Vulnerable file: $file\n";
-                print "[-] Line " . $TokenLine . ": Cross-Site Scripting (XSS) in '" . $XSS_sink . "' via '" . $TokenValue . "'\n\n";
+                if ( $backup eq "1" ) {
+                    backup($result, "[+] Vulnerable file: $file\n");
+                    backup($result, "[-] Line " . $TokenLine .
+                    ": Cross-Site Scripting (XSS) in '" .
+                    $XSS_sink . "' via '" . $TokenValue . "'\n\n");
+                }
+                else {
+                    print "[+] Vulnerable file: $file\n";
+                    print "[-] Line " . $TokenLine .
+                    ": Cross-Site Scripting (XSS) in '" .
+                    $XSS_sink . "' via '" . $TokenValue . "'\n\n";
+                }
             }
             if ( $TokenValue =~ /$fileInclude/ ) {
                 $fileInclude_sink = $TokenValue;
                 $fileInclude_line = $TokenLine;
             }
             if ( ( $TokenValue eq $variable ) and ( $TokenLine eq $fileInclude_line ) ) {
-                print "[+] Vulnerable file: $file\n";
-                print "[-] Line " . $TokenLine . ": PHP File Inclusion in '" . $fileInclude_sink . "' via '" . $TokenValue . "'\n\n";
+                if ( $backup eq "1" ) {
+                    backup($result, "[+] Vulnerable file: $file\n");
+                    backup($result, "[-] Line " . $TokenLine .
+                    ": PHP File Inclusion in '" .
+                    $fileInclude_sink . "' via '" . $TokenValue . "'\n\n");
+                }
+                else {
+                    print "[+] Vulnerable file: $file\n";
+                    print "[-] Line " . $TokenLine .
+                    ": PHP File Inclusion in '" .
+                    $fileInclude_sink . "' via '" . $TokenValue . "'\n\n";
+                }
             }
         }
     }
+}
+
+sub backup {
+    my ( $result, $log )    = @_;
+    # my $t = localtime;
+    # my $timestamp = $t->ymd(""); # $t->hour . $t->min;
+    # my $dir = "results/";
+    # if ( !-d $dir ) {
+    #     make_path $dir or die "Failed to create path: $dir";
+    # }
+    open( my $fh, ">>", "$result" ) or die "$result: $!";
+    print $fh "$log";
+    close($fh);
 }
 
 sub quit {
