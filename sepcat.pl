@@ -125,17 +125,14 @@ sub php_tokenizer {
 
         while (<$fh>) {
 
-            #s/(\?>)/$1\x0a/g;
-            #s/(<\?php)/\x0a$1/g;
-
             my @Data = split( "\n", $_ );
 
             #  OK, go through the remaining line fragments.
             $i++;
             foreach (@Data) {
-                $_ =~ s/^\s*//;    # Remove any white space characters
-                next if (/^\s*$/);       # Skip blank lines
-                next if (/^\/\/.*$/);    #Skip // comments
+                $_ =~ s/^\s*//;			# Remove any white space characters
+                next if (/^\s*$/);		# Skip blank lines
+                next if (/^\/\/.*$/);	# Skip // comments
 
                 #  If we're inside an opening block, watch for the
                 #  closing block.
@@ -154,9 +151,13 @@ sub php_tokenizer {
                         my $reg_T_CONSTANT_ENCAPSED_STRING = '\'[^\']*\'';
                         my $reg_T_ECHO                     = 'echo';
                         my $reg_T_PRINT                    = '\bprint\b';
-                        my $reg_T_EXIT                     = 'exit|die';
+                        my $reg_T_EXIT                     = '\bexit\b|\bdie\b';
                         my $reg_T_INCLUDE                  = '\binclude\b';
-                        my $reg_T_STRING                   = 'printf|vprintf';
+                        my $reg_T_INCLUDE_ONCE			   = '\binclude_once\b';
+						my $reg_T_REQUIRE				   = '\brequire\b';
+						my $reg_T_REQUIRE_ONCE			   = '\brequire_once\b';
+                        my $reg_T_STRING                   = '\bprintf\b|\bvprintf\b|\bphp_check_syntax\b|' .
+                        									 '\brunkit_import\b|\bset_cinlude_path\b|\bvirtual\b';
                         my $reg_all_tokens                 = $reg_T_VARIABLE . "|" .
                                                              $reg_T_NOTOKEN . "|" .
                                                              $reg_T_CONSTANT_ENCAPSED_STRING . "|" .
@@ -164,6 +165,9 @@ sub php_tokenizer {
                                                              $reg_T_PRINT . "|" .
                                                              $reg_T_EXIT . "|" .
                                                              $reg_T_INCLUDE . "|" .
+                                                             $reg_T_INCLUDE_ONCE . "|" .
+                                                             $reg_T_REQUIRE . "|" .
+                                                             $reg_T_REQUIRE_ONCE . "|" .
                                                              $reg_T_STRING;
                         my @raw_php                        = split( "\n", $_ );
                         my @matches;
@@ -267,20 +271,20 @@ sub unsecured {
 
         #print $tainted_var;
         foreach my $token ( 0 .. $#$tokens - 1 ) {
-            my @splitToken = split( $tokenSeperator, @$tokens[$token] );
+            my @splitToken = split( $tokenSeperator, $tokens->[$token] );
             my $TokenName  = $splitToken[0];
             my $TokenValue = $splitToken[1];
             my $TokenLine  = $splitToken[2];
 
             #print $TokenName." - ".$TokenValue."\n";
 
-            my @splitNextToken = split( $tokenSeperator, @$tokens[ $token + 1 ] );
+            my @splitNextToken = split( $tokenSeperator, $tokens->[ $token + 1 ] );
             my $nextTokenName  = $splitNextToken[0];
             my $nextTokenValue = $splitNextToken[1];
             my $nextTokenLine  = $splitNextToken[2];
 
             if ( ( $TokenValue eq $tainted_var ) and ( $nextTokenValue eq "=" ) ) {
-                my @splitVarToken = split( $tokenSeperator, @$tokens[ $token + 2 ] );
+                my @splitVarToken = split( $tokenSeperator, $tokens->[ $token + 2 ] );
                 my $varTokenName  = $splitVarToken[0];
                 my $varTokenValue = $splitVarToken[1];
                 my $varTokenLine  = $splitVarToken[1];
@@ -307,9 +311,8 @@ sub unsecured {
 
 sub vulnerable {
     my ( $unsecured, $tokens ) = @_;
-    my $file = @$tokens[0];
-    chomp($file);
-    $file =~ s/(<:::>)//;
+    my $file = $tokens->[0];
+    chomp ($file) && $file =~ s/<:::>//;
     my $XSS_sink;
     my $XSS_line = "0";
     my $fileInclude_sink;
@@ -317,7 +320,7 @@ sub vulnerable {
     foreach my $variable (@$unsecured) {
         # print $variable."\n";
         foreach my $token ( 0 .. $#$tokens - 1 ) {
-            my @splitToken = split( $tokenSeperator, @$tokens[$token] );
+            my @splitToken = split( $tokenSeperator, $tokens->[$token] );
             my $TokenName  = $splitToken[0];
             my $TokenValue = $splitToken[1];
             my $TokenLine  = $splitToken[2];
