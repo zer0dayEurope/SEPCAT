@@ -1,4 +1,4 @@
-### SEPCAT :: Static Exploitable PHP Code Analysis Tool v0.4 Alpha
+### SEPCAT :: Static Exploitable PHP Code Analysis Tool v0.5 Alpha
 
 SEPCAT is a simple PHP Static Code Analysis (SCA) tool written in Perl.
 It could be used to quickly test a PHP project that you think may have some potential vulnerabilities.
@@ -41,7 +41,11 @@ vavkamil@localhost:~/SEPCAT$ perl sepcat.pl -folder test_vuln_files/
 [+] Vulnerable file: test_vuln_files/XSS_test.php
 [-] Line 16: Cross-Site Scripting (XSS) in 'print' via '$age'
 
-[+] Thank you for using SEPCAT, version 0.4 Alpha
+[+] Vulnerable file: test_vuln_files/SQLi_test.php
+[-] Line 13: SQL Injection in 'mysql_query' via '$id'
+
+[+] Thank you for using SEPCAT, version 0.5 Alpha
+
 
 ```
 

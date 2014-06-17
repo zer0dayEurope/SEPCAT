@@ -13,7 +13,7 @@
 			$name = htmlspecialchars($name);
 			$age = $_GET['age'];
 
-			echo('Hello ' . $name . ', you are ' . $age . ' years old.');
+			print('Hello ' . $name . ', you are ' . $age . ' years old.');
 		?>
 	</body>
 </html>

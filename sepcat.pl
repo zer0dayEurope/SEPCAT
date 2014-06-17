@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 # [SEPCAT] Static Exploitable PHP Code Analysis Tool
-# Version: 0.4
+# Version: 0.5
 #
 # https://github.com/vavkamil/SEPCAT
 
@@ -20,7 +20,7 @@ use File::Find::Rule;
 # Command line options
 my $help;
 my $version;
-my $version_num = 'version 0.4 Alpha';
+my $version_num = 'version 0.5 Alpha';
 my $opt_folder;
 my $opt_file;
 my $opt_result;
@@ -49,11 +49,24 @@ my $tainted_variables = "\\" . join "|\\", @tainted_variables;
 
 # Potential Vulnerable Functions
 my @XSS = ( "echo", "print", "exit", "die", "printf", "vprintf" );
-my $XSS = '(?<!\\w)(' . join( "|", @XSS ) . ')(?!\\w)';
+my $XSS = join "|", @XSS;
 
 my @fileInclude = ( "include", "include_once", "php_check_syntax", "require", "require_once",
     "runkit_import", "set_cinlude_path", "virtual" );
 my $fileInclude = join "|", @fileInclude;
+
+my @sqlInjection = ( "dba_open", "dba_popen", "dba_insert", "dba_fetch", "dba_delete",
+	"dbx_query", "odbc_do", "odbc_exec", "odbc_execute", "db2_exec", "db2_execute",
+	"fbsql_db_query", "fbsql_query", "ibase_query", "ibase_execute", "ifx_query", "ifx_do",
+	"ingres_query", "ingres_execute", "ingres_unbuffered_query", "msql_db_query", "msql_query",
+	"msql", "mssql_query", "mssql_execute", "mysql_db_query", "mysql_query",
+	"mysql_unbuffered_query", "mysqli_stmt_execute", "mysqli_query", "mysqli_real_query",
+	"mysqli_master_query", "oci_execute", "ociexecute", "ovrimos_exec", "ovrimos_execute",
+	"ora_do", "ora_exec", "pg_query", "pg_send_query", "pg_send_query_params", "pg_send_prepare",
+	"pg_prepare", "sqlite_open", "sqlite_popen", "sqlite_array_query", "arrayQuery", "singleQuery",
+	"sqlite_query", "sqlite_exec", "sqlite_single_query", "sqlite_unbuffered_query", "sybase_query",
+	"sybase_unbuffered_query" );
+my $sqlInjection = join "|", @sqlInjection;
 
 # Secured Functions
 my @securingXSS = ( "esc_attr", "esc_url", "htmlentities", "htmlspecialchars" );
@@ -158,25 +171,24 @@ sub php_tokenizer {
                         my $reg_T_REQUIRE_ONCE             = '\brequire_once\b';
                         my $reg_T_STRING                   = '\bprintf\b|\bvprintf\b|\bphp_check_syntax\b|' .
                                                              '\brunkit_import\b|\bset_cinlude_path\b|\bvirtual\b';
-                        my $reg_all_tokens                 = $reg_T_VARIABLE					. "|" .
-                                                             $reg_T_NOTOKEN						. "|" .
-                                                             $reg_T_CONSTANT_ENCAPSED_STRING	. "|" .
-                                                             $reg_T_ECHO						. "|" .
-                                                             $reg_T_PRINT						. "|" .
-                                                             $reg_T_EXIT						. "|" .
-                                                             $reg_T_INCLUDE						. "|" .
-                                                             $reg_T_INCLUDE_ONCE				. "|" .
-                                                             $reg_T_REQUIRE						. "|" .
-                                                             $reg_T_REQUIRE_ONCE				. "|" .
+                        my $reg_all_tokens                 = $reg_T_VARIABLE                 . "|" .
+                                                             $reg_T_NOTOKEN                  . "|" .
+                                                             $reg_T_CONSTANT_ENCAPSED_STRING . "|" .
+                                                             $reg_T_ECHO                     . "|" .
+                                                             $reg_T_PRINT                    . "|" .
+                                                             $reg_T_EXIT                     . "|" .
+                                                             $reg_T_INCLUDE                  . "|" .
+                                                             $reg_T_INCLUDE_ONCE             . "|" .
+                                                             $reg_T_REQUIRE                  . "|" .
+                                                             $reg_T_REQUIRE_ONCE             . "|" .
                                                              $reg_T_STRING;
                         my @raw_php                        = split( "\n", $_ );
-                        my @matches;
 
                         foreach my $raw_line (@raw_php) {
 
                             my @matches;
                             my $token;
-                            if ( @matches = $raw_line =~ /($reg_all_tokens|$securingXSS)/g ) {
+                            if ( @matches = $raw_line =~ /($reg_all_tokens|$securingXSS|$sqlInjection)/g ) {
                                 foreach my $match (@matches) {
                                     if ( ($token) = $match =~ /($reg_T_VARIABLE)/g ) {
                                         push( @tokens, "T_VARIABLE<:::>$token<:::>$i" );
@@ -199,7 +211,7 @@ sub php_tokenizer {
                                     elsif ( ($token) = $match =~ /($reg_T_CONSTANT_ENCAPSED_STRING)/g ) {
                                         push( @tokens, "T_CONSTANT_ENCAPSED_STRING<:::>$token<:::>$i" );
                                     }
-                                    elsif ( ($token) = $match =~ /$securingXSS|$reg_T_STRING/g ) {
+                                    elsif ( ($token) = $match =~ /$securingXSS|$reg_T_STRING|$sqlInjection/g ) {
                                         push( @tokens, "T_STRING<:::>$token<:::>$i" );
                                     }
                                 }
@@ -317,6 +329,8 @@ sub vulnerable {
     my $XSS_line = "0";
     my $fileInclude_sink;
     my $fileInclude_line = "0";
+    my $sqlInjection_sink;
+    my $sqlInjection_line = "0";
     foreach my $variable (@$unsecured) {
         # print $variable."\n";
         foreach my $token ( 0 .. $#$tokens - 1 ) {
@@ -362,18 +376,30 @@ sub vulnerable {
                     $fileInclude_sink . "' via '" . $TokenValue . "'\n\n";
                 }
             }
+            if ( $TokenValue =~ /$sqlInjection/ ) {
+                $sqlInjection_sink = $TokenValue;
+                $sqlInjection_line = $TokenLine;
+            }
+            if ( ( $TokenValue eq $variable ) and ( $TokenLine eq $sqlInjection_line ) ) {
+                if ( $backup eq "1" ) {
+                    backup($result, "[+] Vulnerable file: $file\n");
+                    backup($result, "[-] Line " . $TokenLine .
+                    ": SQL Injection in '" .
+                    $sqlInjection_sink . "' via '" . $TokenValue . "'\n\n");
+                }
+                else {
+                    print "[+] Vulnerable file: $file\n";
+                    print "[-] Line " . $TokenLine .
+                    ": SQL Injection in '" .
+                    $sqlInjection_sink . "' via '" . $TokenValue . "'\n\n";
+                }
+            }
         }
     }
 }
 
 sub backup {
     my ( $result, $log )    = @_;
-    # my $t = localtime;
-    # my $timestamp = $t->ymd(""); # $t->hour . $t->min;
-    # my $dir = "results/";
-    # if ( !-d $dir ) {
-    #     make_path $dir or die "Failed to create path: $dir";
-    # }
     open( my $fh, ">>", "$result" ) or die "$result: $!";
     print $fh "$log";
     close($fh);
