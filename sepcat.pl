@@ -154,20 +154,20 @@ sub php_tokenizer {
                         my $reg_T_EXIT                     = '\bexit\b|\bdie\b';
                         my $reg_T_INCLUDE                  = '\binclude\b';
                         my $reg_T_INCLUDE_ONCE             = '\binclude_once\b';
-						my $reg_T_REQUIRE                  = '\brequire\b';
-						my $reg_T_REQUIRE_ONCE             = '\brequire_once\b';
+                        my $reg_T_REQUIRE                  = '\brequire\b';
+                        my $reg_T_REQUIRE_ONCE             = '\brequire_once\b';
                         my $reg_T_STRING                   = '\bprintf\b|\bvprintf\b|\bphp_check_syntax\b|' .
                                                              '\brunkit_import\b|\bset_cinlude_path\b|\bvirtual\b';
-                        my $reg_all_tokens                 = $reg_T_VARIABLE . "|" .
-                                                             $reg_T_NOTOKEN . "|" .
-                                                             $reg_T_CONSTANT_ENCAPSED_STRING . "|" .
-                                                             $reg_T_ECHO . "|" .
-                                                             $reg_T_PRINT . "|" .
-                                                             $reg_T_EXIT . "|" .
-                                                             $reg_T_INCLUDE . "|" .
-                                                             $reg_T_INCLUDE_ONCE . "|" .
-                                                             $reg_T_REQUIRE . "|" .
-                                                             $reg_T_REQUIRE_ONCE . "|" .
+                        my $reg_all_tokens                 = $reg_T_VARIABLE					. "|" .
+                                                             $reg_T_NOTOKEN						. "|" .
+                                                             $reg_T_CONSTANT_ENCAPSED_STRING	. "|" .
+                                                             $reg_T_ECHO						. "|" .
+                                                             $reg_T_PRINT						. "|" .
+                                                             $reg_T_EXIT						. "|" .
+                                                             $reg_T_INCLUDE						. "|" .
+                                                             $reg_T_INCLUDE_ONCE				. "|" .
+                                                             $reg_T_REQUIRE						. "|" .
+                                                             $reg_T_REQUIRE_ONCE				. "|" .
                                                              $reg_T_STRING;
                         my @raw_php                        = split( "\n", $_ );
                         my @matches;
